@@ -9,7 +9,7 @@
 DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_DEVICE_ADD KmdfHelloWorldEvtDeviceAdd;
 
-HANDLE globProcessId = NULL;
+HANDLE globProcessId = NULL, idToTerminate = NULL;
 
 void PcreateProcessNotifyRoutineEx(
 	PEPROCESS Process,
@@ -92,8 +92,8 @@ void PcreateProcessNotifyRoutineEx(
 	//process exited
 	if (CreateInfo == NULL)
 	{
-		//KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "One more process EXITED\n"));
-		if (globProcessId == ProcessId){
+		KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "One more process EXITED\n"));
+		if (globProcessId == ProcessId) {
 			DbgPrint("Our USERMODE process exited\n");
 
 			RtlInitUnicodeString(&sourceProcessName, L"\\??\\R:\\pproc.txt");
@@ -106,6 +106,7 @@ void PcreateProcessNotifyRoutineEx(
 					bufferToRead[BUFFER_SIZE - 1] = '\0';
 					pidFromFile = atoi(bufferToRead);
 					InitializeObjectAttributes(&sourceProjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+					//clientID.UniqueProcess = (HANDLE)pidFromFile;
 					clientID.UniqueProcess = (HANDLE)pidFromFile;
 					clientID.UniqueThread = NULL;
 					ntstatus = ZwOpenProcess(&processToTerminate, DELETE, &sourceProjectAttributes, &clientID);
@@ -138,7 +139,10 @@ void PcreateProcessNotifyRoutineEx(
 	{
 		procName = CreateInfo->ImageFileName;
 		//KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "One more process CREATED\n"));
-		//DbgPrint("name is %S\n", procName->Buffer);
+		DbgPrint("Process %S created\n", procName->Buffer);
+		if (wcsstr(procName->Buffer, L"calc.exe"))
+			idToTerminate = ProcessId;
+
 		if (wcsstr(procName->Buffer, L"UserModeProject.exe"))
 		{
 			globProcessId = ProcessId;

@@ -8,27 +8,33 @@ int main(int argc, char* argv[])
 	DWORD fileSize, bytesRead, dwWritten;
 	OVERLAPPED osWrite = { 0 };
 	wchar_t* buff;
+	boolean closed = FALSE;
 	while (1) {
-		hFile = CreateFile(L"R:\\pproc.txt", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		hFile = CreateFile(L"D:\\pproc.txt", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hFile == INVALID_HANDLE_VALUE)
 		{
 			printf("Invalid handle\n");
 			printf(GetLastError());
 		}
-		
+		closed = FALSE;
+
 		fileSize = GetFileSize(hFile, NULL);
 		//fileSize = 2;
-		buff = (char*)malloc(fileSize + 1);
+		buff = (wchar_t*)malloc(fileSize + 1);
 		ZeroMemory(buff, sizeof(buff));
 		ReadFile(hFile, (LPVOID)buff, fileSize, &bytesRead, (LPOVERLAPPED)NULL);
 		buff[fileSize] = '\0';
-		if (strcmp(buff, "z") == 0) { //сигнал для создания процесса
+		int cmpRslt = strcmp(buff, L"z");
+
+		if (cmpRslt == 0) { //сигнал для создания процесса
 			TCHAR czCommandLine[] = L"calc";
 			STARTUPINFO siCalc = { sizeof(siCalc) };
 			PROCESS_INFORMATION piCalc;
 			if (CreateProcess(NULL, czCommandLine, NULL, NULL, FALSE, 0, NULL, NULL, &siCalc, &piCalc)) {
 				CloseHandle(hFile);
-				HANDLE outFile = CreateFile(L"R:\\pproc.txt", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				closed = TRUE;
+
+				HANDLE outFile = CreateFile(L"D:\\pproc.txt", GENERIC_WRITE, FILE_SHARE_WRITE, NULL, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				DWORD processPid = piCalc.dwProcessId;
 				DWORD tempPid = processPid;
 				int counter = 0;
@@ -50,7 +56,9 @@ int main(int argc, char* argv[])
 		}
 		realloc(buff, sizeof(buff));
 		
-		CloseHandle(hFile);
+		if(!closed)
+			CloseHandle(hFile);
+		
 		Sleep(10);
 	}
 	return 0;
